@@ -33,7 +33,7 @@ func GetItems() ([]Item, error){
 }
 
 func AddItem(item Item, owner User) (int64, error) {
-    result, err := db.Exec("INSERT INTO ITEM (owner_id, name, size, link) VALUES ((SELECT id FROM USER where id = ?), ?, ?, ?)", owner.id, item.name, item.size, item.link)
+    result, err := db.Exec("INSERT INTO ITEM (owner_id, name, size, link) VALUES ((SELECT id FROM USER WHERE id = ?), ?, ?, ?)", owner.id, item.name, item.size, item.link)
     if err != nil {
         return 0, fmt.Errorf("AddItem: %v", err)
     }
@@ -44,7 +44,7 @@ func AddItem(item Item, owner User) (int64, error) {
     return id, nil
 }
 
-func GetUserItems(owner User) (Item, error) {
+func GetUserItems(owner User) ([]Item, error) {
     var items[]Item
     rows, err := db.Query("SELECT * FROM ITEM WHERE owner_id = ?", owner.id)
     if err != nil {
@@ -60,6 +60,26 @@ func GetUserItems(owner User) (Item, error) {
     }
     if err := rows.Err(); err != nil {
         return nil, fmt.Errorf("GetUserItems: %v", err)
+    }
+    return items, nil
+}
+
+func GetUserItemsByID(id int64) ([]Item, error) {
+    var items[]Item
+    rows, err := db.Query("SELECT * FROM ITEM WHERE owner_id = ?", id)
+    if err != nil {
+        return nil, fmt.Errorf("GetUserItemsByID: %v", err)
+    }
+    defer rows.Close()
+    for rows.Next() {
+        var item Item
+        if err := rows.Scan(&item.id, &item.owner_id, &item.name, &item.size, &item.link); err != nil {
+            return nil, fmt.Errorf("GetUserItemsByID: %v", err)
+        }
+        items = append(items, item)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("GetUserItemsByID: %v", err)
     }
     return items, nil
 }

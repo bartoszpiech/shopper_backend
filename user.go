@@ -1,6 +1,7 @@
 package main
 
 import (
+    "database/sql"
     "fmt"
 )
 
@@ -10,7 +11,8 @@ type User struct {
     email   string
 }
 
-func GetUsers() ([]User, error){
+func GetUsers(c *gin.Context) ([]User, error){
+
     var users []User
     rows, err := db.Query("SELECT * FROM USER")
     if err != nil {
@@ -27,6 +29,10 @@ func GetUsers() ([]User, error){
     if err := rows.Err(); err != nil {
         return nil, fmt.Errorf("GetUsers: %v", err)
     }
+
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    c.IndentedJSON(http.StatusOK, users)
+
     return users, nil
 }
 
@@ -40,4 +46,16 @@ func AddUser(user User) (int64, error) {
         return 0, fmt.Errorf("AddUser: %v", err)
     }
     return id, nil
+}
+
+func GetUserByID(id int64) (User, error){
+    var user User
+    row := db.QueryRow("SELECT * FROM USER WHERE id = ?", id)
+    if err := row.Scan(&user.id, &user.name, &user.email); err != nil {
+        if err == sql.ErrNoRows {
+            return user, fmt.Errorf("GetUserByID %d: no such user", id)
+        }
+        return user, fmt.Errorf("GetUserByID %d: %v", id, err)
+    }
+    return user, nil
 }
