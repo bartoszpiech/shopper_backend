@@ -2,84 +2,74 @@ package main
 
 import (
     "fmt"
+    "net/http"
+    "github.com/gin-gonic/gin"
 )
 
 type Item struct {
-    id          int64
-    owner_id    int64
-    name        string
-    size        string
-    link        string
+    Id          int64   `json:"id"`
+    Owner_id    int64   `json:"owner_id"`
+    Name        string  `json:"name"`
+    Size        string  `json:"size"`
+    Link        string  `json:"link"`
 }
 
-func GetItems() ([]Item, error){
-    var items[]Item
+func GetItems(c *gin.Context) {
+    var items []Item
     rows, err := db.Query("SELECT * FROM ITEM")
     if err != nil {
-        return nil, fmt.Errorf("GetItems: %v", err)
+        fmt.Errorf("GetItems: %v", err)
     }
     defer rows.Close()
     for rows.Next() {
         var item Item
-        if err := rows.Scan(&item.id, &item.owner_id, &item.name, &item.size, &item.link); err != nil {
-            return nil, fmt.Errorf("GetItems: %v", err)
+        if err := rows.Scan(&item.Id, &item.Owner_id, &item.Name, &item.Size, &item.Link); err != nil {
+            fmt.Errorf("GetItems: %v", err)
         }
         items = append(items, item)
     }
     if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("GetItems: %v", err)
+        fmt.Errorf("GetItems: %v", err)
     }
-    return items, nil
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    c.IndentedJSON(http.StatusOK, items)
 }
 
-func AddItem(item Item, owner User) (int64, error) {
-    result, err := db.Exec("INSERT INTO ITEM (owner_id, name, size, link) VALUES ((SELECT id FROM USER WHERE id = ?), ?, ?, ?)", owner.id, item.name, item.size, item.link)
+func AddItem(c *gin.Context) {
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    var newItem Item
+    if err := c.BindJSON(&newItem); err != nil {
+        return
+    }
+    result, err := db.Exec("INSERT INTO ITEM (owner_id, name, size, link) VALUES (?, ?, ?, ?)", newItem.Owner_id, newItem.Name, newItem.Size, newItem.Link)
     if err != nil {
-        return 0, fmt.Errorf("AddItem: %v", err)
+        fmt.Errorf("AddItem: %v", err)
     }
     id, err := result.LastInsertId()
     if err != nil {
-        return 0, fmt.Errorf("AddItem: %v", err)
+        fmt.Errorf("AddItem: %v", err)
     }
-    return id, nil
+    c.IndentedJSON(http.StatusCreated, gin.H{ "id": id})
 }
 
-func GetUserItems(owner User) ([]Item, error) {
-    var items[]Item
-    rows, err := db.Query("SELECT * FROM ITEM WHERE owner_id = ?", owner.id)
-    if err != nil {
-        return nil, fmt.Errorf("GetUserItems: %v", err)
-    }
-    defer rows.Close()
-    for rows.Next() {
-        var item Item
-        if err := rows.Scan(&item.id, &item.owner_id, &item.name, &item.size, &item.link); err != nil {
-            return nil, fmt.Errorf("GetUserItems: %v", err)
-        }
-        items = append(items, item)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("GetUserItems: %v", err)
-    }
-    return items, nil
-}
-
-func GetUserItemsByID(id int64) ([]Item, error) {
-    var items[]Item
+func GetUserItems(c *gin.Context) {
+    var items []Item
+    id := c.Param("id")
     rows, err := db.Query("SELECT * FROM ITEM WHERE owner_id = ?", id)
     if err != nil {
-        return nil, fmt.Errorf("GetUserItemsByID: %v", err)
+        fmt.Errorf("GetUserItems: %v", err)
     }
     defer rows.Close()
     for rows.Next() {
         var item Item
-        if err := rows.Scan(&item.id, &item.owner_id, &item.name, &item.size, &item.link); err != nil {
-            return nil, fmt.Errorf("GetUserItemsByID: %v", err)
+        if err := rows.Scan(&item.Id, &item.Owner_id, &item.Name, &item.Size, &item.Link); err != nil {
+            fmt.Errorf("GetUserItems: %v", err)
         }
         items = append(items, item)
     }
     if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("GetUserItemsByID: %v", err)
+        fmt.Errorf("GetUserItems: %v", err)
     }
-    return items, nil
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    c.IndentedJSON(http.StatusOK, items)
 }

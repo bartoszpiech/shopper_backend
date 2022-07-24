@@ -2,9 +2,13 @@ package main
 
 import (
     "fmt"
-    "log"
+    "net/http"
     "github.com/gin-gonic/gin"
 )
+
+type Auth struct {
+    Password string `json:"pass"`
+}
 
 func main() {
     Connect()
@@ -13,22 +17,33 @@ func main() {
 
     router.StaticFS("/static", http.Dir("static"))
     router.GET("/users", GetUsers)
+    router.GET("/user/:id", GetUserByID)
+    router.POST("/newuser", AddUser)
+    router.GET("/user/:id/items", GetUserItems)
+
+    router.GET("/items", GetItems)
+    router.POST("/newitem", AddItem)
+
+    router.POST("/auth", Authentication)
 
     router.Run("localhost:8080")
+}
 
-    //AddUser(User{ name: "Bartek", email: "shaggysamp@interia.pl" })
-    users, err := GetUsers()
-    if err != nil {
-        log.Fatal(err)
+func Authentication(c *gin.Context) {
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    var newAuth Auth
+    if err := c.BindJSON(&newAuth); err != nil {
+        return
     }
-    fmt.Printf("Users found: %v\n", users)
-
-    //AddItem(Item{ name: "Buty", size: "42", link: "facebook.com" }, users[2])
-    //items, err := GetUserItems(users[2])
-    items, err := GetUserItemsByID(1)
-    //items, err := GetItems()
-    if err != nil {
-        log.Fatal(err)
+    if newAuth.Password == "siema" {
+        cookie, err := c.Cookie("gin_cookie")
+        if err != nil {
+            cookie = "NotSet"
+            c.SetCookie("gin_cookie", "test", 3600, "/", "localhost", false, true)
+            fmt.Printf("Cookie value: %s \n", cookie)
+            c.IndentedJSON(http.StatusOK, gin.H{"cookie": cookie})
+            return
+        }
     }
-    fmt.Printf("Items found: %v\n", items)
+    c.IndentedJSON(http.StatusNotFound, gin.H{"message": "wrong password"})
 }

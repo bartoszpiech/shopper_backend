@@ -3,59 +3,63 @@ package main
 import (
     "database/sql"
     "fmt"
+    "net/http"
+    "github.com/gin-gonic/gin"
 )
 
 type User struct {
-    id      int64
-    name    string
-    email   string
+    Id      int64       `json:"id"`
+    Name    string      `json:"name"`
+    Email   string      `json:"email"`
 }
 
-func GetUsers(c *gin.Context) ([]User, error){
-
+func GetUsers(c *gin.Context) {
     var users []User
     rows, err := db.Query("SELECT * FROM USER")
     if err != nil {
-        return nil, fmt.Errorf("GetUsers: %v", err)
+        fmt.Errorf("GetUsers: %v", err)
     }
     defer rows.Close()
     for rows.Next() {
         var user User
-        if err := rows.Scan(&user.id, &user.name, &user.email); err != nil {
-            return nil, fmt.Errorf("GetUsers: %v", err)
+        if err := rows.Scan(&user.Id, &user.Name, &user.Email); err != nil {
+            fmt.Errorf("GetUsers: %v", err)
         }
         users = append(users, user)
     }
-    if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("GetUsers: %v", err)
-    }
-
     c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
     c.IndentedJSON(http.StatusOK, users)
-
-    return users, nil
 }
 
-func AddUser(user User) (int64, error) {
-    result, err := db.Exec("INSERT INTO USER (name, email) VALUES (?, ?)", user.name, user.email)
+func AddUser(c *gin.Context) {
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    var newUser User
+    if err := c.BindJSON(&newUser); err != nil {
+        return
+    }
+    result, err := db.Exec("INSERT INTO USER (name, email) VALUES (?, ?)", newUser.Name, newUser.Email)
     if err != nil {
-        return 0, fmt.Errorf("AddUser: %v", err)
+        fmt.Errorf("AddUser: %v", err)
     }
     id, err := result.LastInsertId()
     if err != nil {
-        return 0, fmt.Errorf("AddUser: %v", err)
+        fmt.Errorf("AddUser: %v", err)
     }
-    return id, nil
+    c.IndentedJSON(http.StatusCreated, gin.H{ "id": id})
 }
 
-func GetUserByID(id int64) (User, error){
+func GetUserByID(c *gin.Context) {
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
     var user User
+    id := c.Param("id")
     row := db.QueryRow("SELECT * FROM USER WHERE id = ?", id)
-    if err := row.Scan(&user.id, &user.name, &user.email); err != nil {
+    if err := row.Scan(&user.Id, &user.Name, &user.Email); err != nil {
         if err == sql.ErrNoRows {
-            return user, fmt.Errorf("GetUserByID %d: no such user", id)
+            c.IndentedJSON(http.StatusNotFound, gin.H{"message": "user not found"})
+            fmt.Errorf("GetUserByID %d: no such user", id)
+            return
         }
-        return user, fmt.Errorf("GetUserByID %d: %v", id, err)
+        fmt.Errorf("GetUserByID %d: %v", id, err)
     }
-    return user, nil
+    c.IndentedJSON(http.StatusOK, user)
 }
