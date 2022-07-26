@@ -13,6 +13,26 @@ type User struct {
     Email   string      `json:"email"`
 }
 
+func GetAllUsers() ([]User, error){
+    var users []User
+    rows, err := db.Query("SELECT * FROM USER")
+    if err != nil {
+        return nil, fmt.Errorf("GetAllUsers: %v", err)
+    }
+    defer rows.Close()
+    for rows.Next() {
+        var user User
+        if err := rows.Scan(&user.Id, &user.Name, &user.Email); err != nil {
+            return nil, fmt.Errorf("GetAllUsers: %v", err)
+        }
+        users = append(users, user)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("GetAllUsers: %v", err)
+    }
+    return users, nil
+}
+
 func GetUsers(c *gin.Context) {
     var users []User
     rows, err := db.Query("SELECT * FROM USER")
@@ -62,4 +82,18 @@ func GetUserByID(c *gin.Context) {
         fmt.Errorf("GetUserByID %d: %v", id, err)
     }
     c.IndentedJSON(http.StatusOK, user)
+}
+
+func DeleteUser(c *gin.Context) {
+    c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+    id := c.Param("id")
+    result, err := db.Exec("DELETE FROM USER WHERE id = ?", id)
+    if err != nil {
+        fmt.Errorf("DeleteUser: %v", err)
+    }
+    id_deleted, err := result.RowsAffected()
+    if err != nil {
+        fmt.Errorf("DeleteUser: %v", err)
+    }
+    c.IndentedJSON(http.StatusCreated, gin.H{ "id": id_deleted})
 }
